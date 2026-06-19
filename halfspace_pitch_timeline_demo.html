@@ -1,0 +1,96 @@
+<h2 class="sr-only">Interactive pitch view linked to a tactical phase timeline. Clicking the timeline moves the players on the pitch to that moment and shows the detected phase.</h2>
+<div style="padding:1rem 0">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+<span style="font-size:14px;font-weight:500" id="scoreline">Alpha FC 0 — 0 EC Beta</span>
+<span style="font-size:13px;color:var(--color-text-secondary)" id="clock">12:30</span>
+</div>
+<div style="position:relative;width:100%;aspect-ratio:1.55;background:#2f6b3a;border-radius:var(--border-radius-md);overflow:hidden">
+<svg viewBox="0 0 680 440" width="100%" height="100%" style="position:absolute;top:0;left:0">
+<rect x="6" y="6" width="668" height="428" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+<line x1="340" y1="6" x2="340" y2="434" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+<circle cx="340" cy="220" r="55" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+<rect x="6" y="120" width="80" height="200" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+<rect x="594" y="120" width="80" height="200" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+</svg>
+<svg id="players" viewBox="0 0 680 440" width="100%" height="100%" style="position:absolute;top:0;left:0"></svg>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 4px">
+<span style="font-size:13px;color:var(--color-text-secondary)">Detected phase</span>
+<span id="phase-badge" style="font-size:12px;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:500"></span>
+</div>
+<div id="timeline" style="display:flex;width:100%;height:32px;border-radius:var(--border-radius-md);overflow:hidden;border:0.5px solid var(--color-border-tertiary);cursor:pointer;margin-top:8px">
+<div data-state="mid" style="flex:13.9;background:#85B7EB"></div>
+<div data-state="press" style="flex:1.8;background:#F0997B"></div>
+<div data-state="mid" style="flex:18.6;background:#85B7EB"></div>
+<div data-state="trans" style="flex:2.7;background:#EF9F27"></div>
+<div data-state="low" style="flex:21.1;background:#5DCAA5"></div>
+<div data-state="trans" style="flex:3.1;background:#EF9F27"></div>
+<div data-state="mid" style="flex:14.4;background:#85B7EB"></div>
+<div data-state="press" style="flex:2.2;background:#F0997B"></div>
+<div data-state="low" style="flex:22.2;background:#5DCAA5"></div>
+</div>
+<div id="marker" style="position:relative;height:0">
+<div id="marker-dot" style="position:absolute;top:-32px;width:2px;height:32px;background:var(--color-text-primary);left:13.9%"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-secondary);margin-top:6px">
+<span>0:00</span><span>30:00</span><span>60:00</span><span>90:00</span>
+</div>
+</div>
+<script>
+const stateInfo = {
+  mid:   { label: 'Mid-block',  bg: '#E6F1FB', fg: '#0C447C' },
+  low:   { label: 'Low-block',  bg: '#E1F5EE', fg: '#085041' },
+  press: { label: 'High press', bg: '#FAECE7', fg: '#712B13' },
+  trans: { label: 'Transition', bg: '#FAEEDA', fg: '#633806' }
+};
+const frames = [
+  { t: 5,  state: 'mid',   home: [[120,120],[120,220],[120,320],[200,90],[200,170],[200,270],[200,350],[280,140],[280,300],[260,220]], away: [[560,120],[560,320],[480,90],[480,170],[480,270],[480,350],[400,140],[400,300],[420,220],[440,220]] },
+  { t: 13, state: 'press', home: [[200,120],[200,220],[200,320],[280,90],[280,170],[280,270],[280,350],[360,140],[400,260],[330,220]], away: [[600,120],[600,320],[520,200],[480,150],[480,290],[440,220],[380,180],[360,260],[300,220],[280,160]] },
+  { t: 25, state: 'mid',   home: [[120,120],[120,220],[120,320],[200,90],[200,170],[200,270],[200,350],[280,140],[280,300],[260,220]], away: [[560,120],[560,320],[480,90],[480,170],[480,270],[480,350],[400,140],[400,300],[420,220],[440,220]] },
+  { t: 34, state: 'trans', home: [[160,120],[160,220],[160,320],[260,150],[300,250],[340,180],[380,300],[420,160],[460,260],[340,220]], away: [[580,120],[580,320],[500,150],[460,250],[420,180],[380,260],[340,160],[300,220],[260,260],[230,200]] },
+  { t: 60, state: 'low',   home: [[70,120],[70,220],[70,320],[140,90],[140,170],[140,270],[140,350],[210,140],[210,300],[180,220]], away: [[560,120],[560,320],[480,90],[480,170],[480,270],[480,350],[400,140],[400,300],[420,220],[440,220]] },
+  { t: 75, state: 'mid',   home: [[120,120],[120,220],[120,320],[200,90],[200,170],[200,270],[200,350],[280,140],[280,300],[260,220]], away: [[560,120],[560,320],[480,90],[480,170],[480,270],[480,350],[400,140],[400,300],[420,220],[440,220]] },
+  { t: 79, state: 'press', home: [[200,120],[200,220],[200,320],[280,90],[280,170],[280,270],[280,350],[360,140],[400,260],[330,220]], away: [[600,120],[600,320],[520,200],[480,150],[480,290],[440,220],[380,180],[360,260],[300,220],[280,160]] },
+  { t: 88, state: 'low',   home: [[70,120],[70,220],[70,320],[140,90],[140,170],[140,270],[140,350],[210,140],[210,300],[180,220]], away: [[560,120],[560,320],[480,90],[480,170],[480,270],[480,350],[400,140],[400,300],[420,220],[440,220]] }
+];
+const playersSvg = document.getElementById('players');
+const ball = { x: 340, y: 220 };
+function render(frame) {
+  let svg = '';
+  frame.home.forEach(p => { svg += `<circle cx="${p[0]}" cy="${p[1]}" r="9" fill="#378ADD" stroke="#042C53" stroke-width="0.5"/>`; });
+  frame.away.forEach(p => { svg += `<circle cx="${p[0]}" cy="${p[1]}" r="9" fill="#D4537E" stroke="#4B1528" stroke-width="0.5"/>`; });
+  svg += `<circle cx="${ball.x}" cy="${ball.y}" r="4" fill="#fff" stroke="#222" stroke-width="0.7"/>`;
+  playersSvg.innerHTML = svg;
+}
+function setPhase(state) {
+  const info = stateInfo[state];
+  const badge = document.getElementById('phase-badge');
+  badge.textContent = info.label;
+  badge.style.background = info.bg;
+  badge.style.color = info.fg;
+}
+function closestFrame(minute) {
+  let best = frames[0];
+  for (const f of frames) { if (Math.abs(f.t - minute) < Math.abs(best.t - minute)) best = f; }
+  return best;
+}
+function fmtClock(minute) {
+  const m = Math.floor(minute);
+  const s = Math.round((minute - m) * 60);
+  return m + ':' + String(s).padStart(2, '0');
+}
+function goTo(minute) {
+  const pct = Math.max(0, Math.min(100, (minute / 90) * 100));
+  document.getElementById('marker-dot').style.left = pct + '%';
+  document.getElementById('clock').textContent = fmtClock(minute);
+  const f = closestFrame(minute);
+  render(f);
+  setPhase(f.state);
+}
+document.getElementById('timeline').addEventListener('click', (e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  goTo(pct * 90);
+});
+goTo(13);
+</script>
